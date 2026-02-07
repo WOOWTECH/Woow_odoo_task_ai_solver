@@ -1,0 +1,38 @@
+.o_field_task_chat_widget,
+.o_field_widget[name="channel_id"] {
+    width: 100% !important;
+    flex: 1 1 auto;
+}
+
+.o_task_chat {
+    border: 1px solid var(--o-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    background: var(--o-view-background-color, #ffffff);
+    width: 100%;
+
+    .o_task_chat_header {
+        font-size: 0.9rem;
+    }
+
+    .o_task_chat_messages {
+        min-height: 200px;
+    }
+
+    .o_task_chat_message {
+        .o_task_chat_body {
+            font-size: 0.875rem;
+            word-wrap: break-word;
+
+            p {
+                margin-bottom: 0;
+            }
+        }
+    }
+
+    .o_task_chat_input {
+        textarea {
+            resize: none;
+            font-size: 0.875rem;
+        }
+    }
+}

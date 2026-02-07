@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Portal users can only access discuss.channel records where they are a member -->
+    <record id="rule_discuss_channel_portal_task" model="ir.rule">
+        <field name="name">Portal: only own task chat channels</field>
+        <field name="model_id" ref="mail.model_discuss_channel"/>
+        <field name="domain_force">[
+            ('channel_member_ids.partner_id', '=', user.partner_id.id),
+            ('channel_type', '=', 'group'),
+        ]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- Portal users can only read messages authored by themselves or in channels they belong to -->
+    <record id="rule_mail_message_portal_task_chat" model="ir.rule">
+        <field name="name">Portal: messages in own task chat channels</field>
+        <field name="model_id" ref="mail.model_mail_message"/>
+        <field name="domain_force">[
+            '|',
+            ('author_id', '=', user.partner_id.id),
+            '|',
+            ('model', '!=', 'discuss.channel'),
+            ('partner_ids', 'in', [user.partner_id.id]),
+        ]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+</odoo>

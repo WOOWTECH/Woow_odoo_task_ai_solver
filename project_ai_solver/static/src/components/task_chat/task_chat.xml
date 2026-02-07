@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="project_ai_solver.TaskChat">
+        <div class="o_task_chat d-flex flex-column w-100">
+            <!-- Header -->
+            <div class="o_task_chat_header p-2 border-bottom bg-100 fw-bold">
+                Task Chat
+                <span class="badge bg-primary ms-2" t-if="state.messages.length">
+                    <t t-esc="state.messages.length"/>
+                </span>
+            </div>
+
+            <!-- Messages area -->
+            <div class="o_task_chat_messages flex-grow-1 overflow-auto p-3"
+                 style="max-height: 400px;">
+                <t t-if="state.loading">
+                    <div class="text-center text-muted py-4">
+                        <i class="fa fa-spinner fa-spin"/> Loading messages...
+                    </div>
+                </t>
+                <t t-elif="!state.messages.length">
+                    <div class="text-center text-muted py-4">
+                        No messages yet. Start the conversation!
+                    </div>
+                </t>
+                <t t-else="">
+                    <t t-foreach="state.messages" t-as="msg" t-key="msg.id">
+                        <div class="o_task_chat_message mb-2 p-2 rounded bg-100">
+                            <div class="d-flex justify-content-between">
+                                <strong class="text-primary">
+                                    <t t-esc="msg.author_id[1] or 'Unknown'"/>
+                                </strong>
+                                <small class="text-muted">
+                                    <t t-esc="msg.date"/>
+                                </small>
+                            </div>
+                            <div class="o_task_chat_body mt-1" t-out="msg.body"/>
+                        </div>
+                    </t>
+                </t>
+                <div t-ref="messagesEnd"/>
+            </div>
+
+            <!-- Input area -->
+            <div class="o_task_chat_input border-top p-2 d-flex gap-2">
+                <textarea
+                    class="form-control"
+                    rows="2"
+                    placeholder="Type a message..."
+                    t-model="state.inputValue"
+                    t-on-keydown="onKeydown"/>
+                <button class="btn btn-primary align-self-end"
+                        t-on-click="sendMessage">
+                    <i class="fa fa-paper-plane"/>
+                </button>
+            </div>
+        </div>
+    </t>
+
+</templates>

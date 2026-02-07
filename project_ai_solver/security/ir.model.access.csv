@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_discuss_channel_portal,discuss.channel.portal,mail.model_discuss_channel,base.group_portal,1,0,0,0
+access_mail_message_portal,mail.message.portal,mail.model_mail_message,base.group_portal,1,0,1,0

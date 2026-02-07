@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="portal_my_task_chat"
+              name="Portal Task Chat Widget"
+              inherit_id="project.portal_my_task"
+              priority="99">
+        <xpath expr="//div[@id='task_content']" position="inside">
+            <t t-if="chat_enabled and channel_id">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fa fa-comments me-2"/>Task Chat
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="o_portal_task_chat"
+                             t-att-data-channel-id="channel_id"
+                             style="min-height: 300px;">
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </xpath>
+    </template>
+
+</odoo>
