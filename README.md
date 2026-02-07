@@ -1,0 +1,1 @@
+# Woow_odoo_task_ai_solver
