@@ -26,6 +26,16 @@ export class TaskChatWidget extends Component {
         this.messagesEnd = useRef("messagesEnd");
         this.fileInputRef = useRef("fileInput");
 
+        // Real-time bus subscription
+        this.busService = useService("bus_service");
+        this.busService.subscribe("project_ai_solver/new_message", (payload) => {
+            if (payload.channel_id === this.channelId) {
+                // Debounce to avoid rapid-fire reloads
+                clearTimeout(this._busDebounce);
+                this._busDebounce = setTimeout(() => this.loadMessages(), 300);
+            }
+        });
+
         onMounted(async () => {
             if (this.channelId) {
                 await this.loadMessages();
