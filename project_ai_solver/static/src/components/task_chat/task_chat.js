@@ -4,6 +4,7 @@ import { Component, useState, useRef, onMounted, markup } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
+import { rpc } from "@web/core/network/rpc";
 
 export class TaskChatWidget extends Component {
     static template = "project_ai_solver.TaskChat";
@@ -12,7 +13,6 @@ export class TaskChatWidget extends Component {
     };
 
     setup() {
-        this.rpc = useService("rpc");
         this.notification = useService("notification");
 
         this.state = useState({
@@ -26,15 +26,18 @@ export class TaskChatWidget extends Component {
         this.messagesEnd = useRef("messagesEnd");
         this.fileInputRef = useRef("fileInput");
 
-        // Real-time bus subscription
-        this.busService = useService("bus_service");
-        this.busService.subscribe("project_ai_solver/new_message", (payload) => {
-            if (payload.channel_id === this.channelId) {
-                // Debounce to avoid rapid-fire reloads
-                clearTimeout(this._busDebounce);
-                this._busDebounce = setTimeout(() => this.loadMessages(), 300);
-            }
-        });
+        // Real-time bus subscription (optional — not available in all contexts)
+        try {
+            this.busService = useService("bus_service");
+            this.busService.subscribe("project_ai_solver/new_message", (payload) => {
+                if (payload.channel_id === this.channelId) {
+                    clearTimeout(this._busDebounce);
+                    this._busDebounce = setTimeout(() => this.loadMessages(), 300);
+                }
+            });
+        } catch (_e) {
+            // bus_service not available (e.g. project sharing) — no real-time updates
+        }
 
         onMounted(async () => {
             if (this.channelId) {
@@ -62,7 +65,7 @@ export class TaskChatWidget extends Component {
             return;
         }
         try {
-            const result = await this.rpc("/project_ai_solver/chat/history", {
+            const result = await rpc("/project_ai_solver/chat/history", {
                 channel_id: channelId,
                 limit: 100,
             });
@@ -87,7 +90,7 @@ export class TaskChatWidget extends Component {
         if (!channelId) return;
 
         try {
-            await this.rpc("/project_ai_solver/chat/post", {
+            await rpc("/project_ai_solver/chat/post", {
                 channel_id: channelId,
                 message_body: body || "",
                 attachment_ids: attachmentIds.length ? attachmentIds : null,
