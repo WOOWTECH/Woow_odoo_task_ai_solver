@@ -12,7 +12,7 @@ export class TaskChatWidget extends Component {
     };
 
     setup() {
-        this.orm = useService("orm");
+        this.rpc = useService("rpc");
         this.notification = useService("notification");
 
         this.state = useState({
@@ -62,42 +62,14 @@ export class TaskChatWidget extends Component {
             return;
         }
         try {
-            const messages = await this.orm.searchRead(
-                "mail.message",
-                [
-                    ["model", "=", "discuss.channel"],
-                    ["res_id", "=", channelId],
-                    ["message_type", "in", ["comment", "notification"]],
-                ],
-                ["body", "author_id", "date", "attachment_ids"],
-                { order: "date asc", limit: 100 }
-            );
-
-            // Fetch attachment details for messages that have them
-            const allAttIds = messages.flatMap((m) => m.attachment_ids || []);
-            let attMap = {};
-            if (allAttIds.length) {
-                try {
-                    const atts = await this.orm.searchRead(
-                        "ir.attachment",
-                        [["id", "in", allAttIds]],
-                        ["name", "mimetype", "file_size"],
-                    );
-                    for (const att of atts) {
-                        attMap[att.id] = {
-                            ...att,
-                            is_image: att.mimetype && att.mimetype.startsWith("image/"),
-                        };
-                    }
-                } catch (_e) {
-                    // Portal users may lack ir.attachment read access; skip enrichment
-                }
-            }
-
-            this.state.messages = messages.map((m) => ({
+            const result = await this.rpc("/project_ai_solver/chat/history", {
+                channel_id: channelId,
+                limit: 100,
+            });
+            this.state.messages = (result.messages || []).map((m) => ({
                 ...m,
                 body: markup(m.body || ""),
-                attachments: (m.attachment_ids || []).map((id) => attMap[id]).filter(Boolean),
+                attachments: m.attachments || [],
             }));
         } catch (e) {
             this.notification.add("Failed to load chat messages", { type: "danger" });
@@ -115,15 +87,11 @@ export class TaskChatWidget extends Component {
         if (!channelId) return;
 
         try {
-            const kwargs = {
-                body: body || "",
-                message_type: "comment",
-                subtype_xmlid: "mail.mt_comment",
-            };
-            if (attachmentIds.length) {
-                kwargs.attachment_ids = attachmentIds;
-            }
-            await this.orm.call("discuss.channel", "message_post", [channelId], kwargs);
+            await this.rpc("/project_ai_solver/chat/post", {
+                channel_id: channelId,
+                message_body: body || "",
+                attachment_ids: attachmentIds.length ? attachmentIds : null,
+            });
             this.state.inputValue = "";
             this.state.pendingAttachments = [];
             await this.loadMessages();
@@ -152,13 +120,11 @@ export class TaskChatWidget extends Component {
             }
             try {
                 const formData = new FormData();
+                formData.append("channel_id", channelId);
                 formData.append("ufile", file);
-                formData.append("thread_model", "discuss.channel");
-                formData.append("thread_id", channelId);
-                formData.append("is_pending", "true");
                 formData.append("csrf_token", odoo.csrf_token || "");
 
-                const response = await fetch("/mail/attachment/upload", {
+                const response = await fetch("/project_ai_solver/chat/upload", {
                     method: "POST",
                     body: formData,
                 });
