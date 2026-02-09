@@ -14,7 +14,7 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
         this.pendingAttachments = [];
         this._renderChatUI();
         this._loadHistory();
-        this._startFallbackPolling();
+        this._startSmartPolling();
     },
 
     _renderChatUI() {
@@ -124,6 +124,7 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
             if (result && result.messages) {
                 this.messages = result.messages;
                 this._renderMessages();
+                this._adjustPollingSpeed();
             }
         } catch (e) {
             console.error('Failed to load chat history:', e);
@@ -198,10 +199,37 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
         }
     },
 
-    _startFallbackPolling() {
-        this._pollInterval = setInterval(() => {
+    _startSmartPolling() {
+        // Fast poll (3s) initially, slow down to 15s after 2 minutes of no new messages
+        this._pollIntervalMs = 3000;
+        this._lastMessageCount = 0;
+        this._noChangeCount = 0;
+
+        this._pollTimer = setInterval(() => {
             this._loadHistory();
-        }, 5000);
+        }, this._pollIntervalMs);
+    },
+
+    _adjustPollingSpeed() {
+        const currentCount = this.messages.length;
+        if (currentCount !== this._lastMessageCount) {
+            // New messages arrived — keep fast polling, reset counter
+            this._lastMessageCount = currentCount;
+            this._noChangeCount = 0;
+            if (this._pollIntervalMs !== 3000) {
+                this._pollIntervalMs = 3000;
+                clearInterval(this._pollTimer);
+                this._pollTimer = setInterval(() => this._loadHistory(), 3000);
+            }
+        } else {
+            this._noChangeCount++;
+            // After 40 unchanged polls (~2 minutes at 3s), slow to 15s
+            if (this._noChangeCount > 40 && this._pollIntervalMs !== 15000) {
+                this._pollIntervalMs = 15000;
+                clearInterval(this._pollTimer);
+                this._pollTimer = setInterval(() => this._loadHistory(), 15000);
+            }
+        }
     },
 
     _scrollToBottom() {
@@ -223,8 +251,8 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
     },
 
     destroy() {
-        if (this._pollInterval) {
-            clearInterval(this._pollInterval);
+        if (this._pollTimer) {
+            clearInterval(this._pollTimer);
         }
         this._super(...arguments);
     },
