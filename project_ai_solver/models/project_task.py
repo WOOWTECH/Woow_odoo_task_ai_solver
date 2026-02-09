@@ -18,6 +18,10 @@ class ProjectTask(models.Model):
         ondelete='set null',
     )
 
+    @property
+    def SELF_READABLE_FIELDS(self):
+        return super().SELF_READABLE_FIELDS | {'chat_enabled', 'channel_id'}
+
     def _create_chat_channel(self):
         """Create a discuss.channel linked to this task and add members."""
         self.ensure_one()

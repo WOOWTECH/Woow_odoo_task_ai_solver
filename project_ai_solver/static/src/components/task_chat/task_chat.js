@@ -67,16 +67,20 @@ export class TaskChatWidget extends Component {
             const allAttIds = messages.flatMap((m) => m.attachment_ids || []);
             let attMap = {};
             if (allAttIds.length) {
-                const atts = await this.orm.searchRead(
-                    "ir.attachment",
-                    [["id", "in", allAttIds]],
-                    ["name", "mimetype", "file_size", "access_token"],
-                );
-                for (const att of atts) {
-                    attMap[att.id] = {
-                        ...att,
-                        is_image: att.mimetype && att.mimetype.startsWith("image/"),
-                    };
+                try {
+                    const atts = await this.orm.searchRead(
+                        "ir.attachment",
+                        [["id", "in", allAttIds]],
+                        ["name", "mimetype", "file_size"],
+                    );
+                    for (const att of atts) {
+                        attMap[att.id] = {
+                            ...att,
+                            is_image: att.mimetype && att.mimetype.startsWith("image/"),
+                        };
+                    }
+                } catch (_e) {
+                    // Portal users may lack ir.attachment read access; skip enrichment
                 }
             }
 
