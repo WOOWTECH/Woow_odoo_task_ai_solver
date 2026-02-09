@@ -164,11 +164,14 @@ except Exception as e:
 print("\n=== TEST 5: Admin Sends Message ===")
 try:
     if channel_id:
-        xmlrpc_call("discuss.channel", "message_post", [[channel_id]], {
-            "body": "Hello from admin!",
-            "message_type": "comment",
-            "subtype_xmlid": "mail.mt_comment",
-        })
+        try:
+            xmlrpc_call("discuss.channel", "message_post", [[channel_id]], {
+                "body": "Hello from admin!",
+                "message_type": "comment",
+                "subtype_xmlid": "mail.mt_comment",
+            })
+        except Exception:
+            pass  # XML-RPC cannot marshal mail.message return; message is still posted
         msgs = xmlrpc_call("mail.message", "search_read", [[
             ["model", "=", "discuss.channel"],
             ["res_id", "=", channel_id],
@@ -372,6 +375,33 @@ try:
         log(False, "Portal template not found")
 except Exception as e:
     log(False, f"Template position check failed: {e}")
+
+# ============================================================
+# TEST 14: Bus notification mechanism (override is active)
+# ============================================================
+print("\n=== TEST 14: Bus Notification Mechanism ===")
+try:
+    if channel_id:
+        # Verify the discuss.channel override is active by posting a message
+        # and checking that no error occurs (bus notification dispatches silently)
+        admin_session, admin_uid = make_session(ADMIN_LOGIN, ADMIN_PASS)
+        result = json_rpc(admin_session, "/project_ai_solver/chat/post", {
+            "channel_id": channel_id,
+            "message_body": "Bus notification test message",
+        })
+        log(result.get("success") is True, "message_post with bus override succeeded")
+
+        # Verify the message arrived (proves override didn't break message_post)
+        result = json_rpc(admin_session, "/project_ai_solver/chat/history", {
+            "channel_id": channel_id,
+        })
+        msgs = result.get("messages", [])
+        bus_msg = any("Bus notification test" in (m.get("body", "") or "") for m in msgs)
+        log(bus_msg, "Message posted via bus-enabled message_post is visible")
+    else:
+        log(False, "No channel for bus test")
+except Exception as e:
+    log(False, f"Bus notification test failed: {e}")
 
 # ============================================================
 # SUMMARY
