@@ -23,16 +23,78 @@ class ProjectAISolverPortal(CustomerPortal):
         return values
 
     def _validate_portal_channel_access(self, channel_id):
-        """Validate that the current portal user has access to this channel."""
+        """Validate that the current portal user has access to this channel.
+
+        If the user has access to the task that owns this channel but is not
+        yet a channel member, automatically add them to the channel.
+        """
         partner = request.env.user.partner_id
         channel = request.env['discuss.channel'].sudo().browse(channel_id)
         if not channel.exists():
             raise AccessError("Channel not found.")
+
+        # Check if user is already a member
         member = channel.channel_member_ids.filtered(
             lambda m: m.partner_id.id == partner.id
         )
-        if not member:
+        if member:
+            return channel
+
+        # User is not a member - check if they have access to the task
+        task = request.env['project.task'].sudo().search([
+            ('channel_id', '=', channel_id)
+        ], limit=1)
+
+        if not task:
             raise AccessError("You do not have access to this chat channel.")
+
+        # Check task access: user must be collaborator, follower, or task partner
+        has_access = False
+
+        # Check if user's partner is the task's customer
+        if task.partner_id and task.partner_id.id == partner.id:
+            has_access = True
+
+        # Check if user is a follower of the task
+        if not has_access:
+            follower = task.message_follower_ids.filtered(
+                lambda f: f.partner_id.id == partner.id
+            )
+            if follower:
+                has_access = True
+
+        # Check project collaborators (for portal sharing)
+        if not has_access and task.project_id:
+            collaborator = task.project_id.collaborator_ids.filtered(
+                lambda c: c.partner_id.id == partner.id
+            )
+            if collaborator:
+                has_access = True
+
+        if not has_access:
+            raise AccessError("You do not have access to this chat channel.")
+
+        # User has task access - add them to the channel
+        # Use try/except to handle race condition where multiple requests
+        # might try to add the same user simultaneously
+        from odoo import Command
+        from psycopg2 import IntegrityError
+        try:
+            channel.write({
+                'channel_member_ids': [Command.create({'partner_id': partner.id})]
+            })
+            _logger.info(
+                "Added portal user %s to chat channel %s for task %s",
+                partner.name, channel.name, task.name
+            )
+        except IntegrityError:
+            # User was already added by another concurrent request
+            request.env.cr.rollback()
+            _logger.debug(
+                "Portal user %s already a member of channel %s (race condition)",
+                partner.name, channel.name
+            )
+
         return channel
 
     @http.route(
