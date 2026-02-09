@@ -19,6 +19,7 @@
         'security/ir.model.access.csv',
         'security/security.xml',
         'views/project_task_views.xml',
+        'views/project_sharing_views.xml',
         'templates/portal_task_chat.xml',
     ],
     'assets': {
@@ -29,6 +30,11 @@
         ],
         'web.assets_frontend': [
             'project_ai_solver/static/src/portal/portal_chat.js',
+        ],
+        'project.webclient': [
+            'project_ai_solver/static/src/components/task_chat/task_chat.js',
+            'project_ai_solver/static/src/components/task_chat/task_chat.xml',
+            'project_ai_solver/static/src/components/task_chat/task_chat.scss',
         ],
     },
     'installable': True,

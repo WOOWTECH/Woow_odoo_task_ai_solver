@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Add Chat tab to the Project Sharing task form view -->
+    <record id="project_sharing_task_form_inherit_chat" model="ir.ui.view">
+        <field name="name">project.sharing.task.form.inherit.chat</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.project_sharing_project_task_view_form"/>
+        <field name="arch" type="xml">
+            <!-- Add chat_enabled and channel_id fields -->
+            <xpath expr="//field[@name='tag_ids']" position="after">
+                <field name="chat_enabled" invisible="1"/>
+                <field name="channel_id" invisible="1"/>
+            </xpath>
+
+            <!-- Add Chat notebook page -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Chat"
+                      name="chat_page"
+                      invisible="not chat_enabled or not channel_id">
+                    <div class="w-100 d-flex">
+                        <field name="channel_id" widget="task_chat_widget" nolabel="1" class="w-100"/>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
