@@ -27,6 +27,25 @@
                 margin-bottom: 0;
             }
         }
+
+        .o_task_chat_attachments {
+            .o_chat_attachment_img {
+                display: inline-block;
+                transition: opacity 0.15s;
+
+                &:hover {
+                    opacity: 0.85;
+                }
+
+                img {
+                    object-fit: cover;
+                }
+            }
+        }
+    }
+
+    .o_task_chat_pending {
+        background: #fefce8;
     }
 
     .o_task_chat_input {

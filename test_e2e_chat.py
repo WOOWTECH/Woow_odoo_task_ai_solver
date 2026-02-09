@@ -281,6 +281,99 @@ except Exception as e:
     log(False, f"Portal template check failed: {e}")
 
 # ============================================================
+# TEST 11: Attachment upload endpoint
+# ============================================================
+print("\n=== TEST 11: Attachment Upload ===")
+try:
+    if channel_id:
+        import io
+        import mimetypes
+
+        # Create a simple test file content
+        boundary = "----TestBoundary123456"
+        file_content = b"Hello, this is a test file for chat attachment."
+        body_parts = []
+        body_parts.append(f"--{boundary}")
+        body_parts.append(f'Content-Disposition: form-data; name="channel_id"')
+        body_parts.append("")
+        body_parts.append(str(channel_id))
+        body_parts.append(f"--{boundary}")
+        body_parts.append(f'Content-Disposition: form-data; name="ufile"; filename="test_chat.txt"')
+        body_parts.append("Content-Type: text/plain")
+        body_parts.append("")
+
+        body_bytes = ("\r\n".join(body_parts) + "\r\n").encode() + file_content + f"\r\n--{boundary}--\r\n".encode()
+
+        req = urllib.request.Request(
+            f"{URL}/project_ai_solver/chat/upload",
+            data=body_bytes,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        )
+        # Use portal session opener to add cookies
+        resp = portal_session.open(req)
+        result = json.loads(resp.read())
+        log("id" in result, f"File uploaded, attachment id={result.get('id')}")
+        log(result.get("name") == "test_chat.txt", f"Attachment name correct: {result.get('name')}")
+        log(result.get("mimetype") == "text/plain", f"Mimetype correct: {result.get('mimetype')}")
+        upload_att_id = result.get("id")
+    else:
+        log(False, "No channel for upload test")
+        upload_att_id = None
+except Exception as e:
+    log(False, f"Upload test failed: {e}")
+    upload_att_id = None
+
+# ============================================================
+# TEST 12: Send message with attachment
+# ============================================================
+print("\n=== TEST 12: Message With Attachment ===")
+try:
+    if channel_id and upload_att_id:
+        result = json_rpc(portal_session, "/project_ai_solver/chat/post", {
+            "channel_id": channel_id,
+            "message_body": "Here is my file",
+            "attachment_ids": [upload_att_id],
+        })
+        log(result.get("success") is True, "Message with attachment posted")
+
+        # Check history includes attachment data
+        result = json_rpc(portal_session, "/project_ai_solver/chat/history", {"channel_id": channel_id})
+        msgs = result.get("messages", [])
+        msg_with_att = [m for m in msgs if m.get("attachments")]
+        log(len(msg_with_att) > 0, f"Found {len(msg_with_att)} message(s) with attachments")
+        if msg_with_att:
+            att = msg_with_att[-1]["attachments"][0]
+            log(att.get("name") == "test_chat.txt", f"Attachment name in history: {att.get('name')}")
+            log("access_token" in att, "Attachment has access_token")
+    else:
+        log(False, "No channel or attachment for this test")
+except Exception as e:
+    log(False, f"Attachment message test failed: {e}")
+
+# ============================================================
+# TEST 13: Portal template position (Task Chat before Communication History)
+# ============================================================
+print("\n=== TEST 13: Portal Template Position ===")
+try:
+    import xmlrpc.client
+    common = xmlrpc.client.ServerProxy(f"{URL}/xmlrpc/2/common")
+    uid_admin = common.authenticate(DB, ADMIN_LOGIN, ADMIN_PASS, {})
+    models_proxy = xmlrpc.client.ServerProxy(f"{URL}/xmlrpc/2/object")
+
+    views = models_proxy.execute_kw(DB, uid_admin, ADMIN_PASS, "ir.ui.view", "search_read",
+                                     [[["key", "=", "project_ai_solver.portal_my_task_chat"]]],
+                                     {"fields": ["name", "arch_db", "active"]})
+    if views:
+        arch = views[0].get("arch_db", "")
+        # Check that the xpath targets task_chat div with position="before"
+        log('position="before"' in arch, "Template uses position='before' (chat above history)")
+        log('div[@id=\'task_chat\']' in arch or "task_chat" in arch, "Template targets #task_chat div")
+    else:
+        log(False, "Portal template not found")
+except Exception as e:
+    log(False, f"Template position check failed: {e}")
+
+# ============================================================
 # SUMMARY
 # ============================================================
 print(f"\n{'='*50}")

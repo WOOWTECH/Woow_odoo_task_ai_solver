@@ -5,7 +5,7 @@
               name="Portal Task Chat Widget"
               inherit_id="project.portal_my_task"
               priority="99">
-        <xpath expr="//div[@id='task_content']" position="inside">
+        <xpath expr="//div[@id='task_chat']" position="before">
             <t t-if="chat_enabled and channel_id">
                 <div class="card mt-3">
                     <div class="card-header">
