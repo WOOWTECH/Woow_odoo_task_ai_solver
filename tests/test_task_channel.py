@@ -1,5 +1,5 @@
 from odoo.tests.common import TransactionCase
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
 
 
 class TestTaskChatChannel(TransactionCase):
@@ -61,6 +61,12 @@ class TestTaskChatChannel(TransactionCase):
         self.assertEqual(self.task.channel_id.channel_type, 'group')
         self.assertIn('Test Task', self.task.channel_id.name)
 
+    def test_channel_is_task_chat_flag(self):
+        """Channel created for task should have is_task_chat=True."""
+        self.task.write({'chat_enabled': True})
+        channel = self.task.channel_id
+        self.assertTrue(channel.is_task_chat)
+
     def test_channel_members(self):
         """Channel should include assigned user and portal partner."""
         self.task.write({'chat_enabled': True})
@@ -81,6 +87,17 @@ class TestTaskChatChannel(TransactionCase):
         """chat_enabled=False should not create a channel."""
         self.task.write({'chat_enabled': False})
         self.assertFalse(self.task.channel_id)
+
+    def test_channel_no_members_raises_error(self):
+        """Enabling chat on a task with no members should raise UserError."""
+        empty_task = self.env['project.task'].create({
+            'name': 'Empty Task',
+            'project_id': self.project.id,
+            'user_ids': [(6, 0, [])],
+            'partner_id': False,
+        })
+        with self.assertRaises(UserError):
+            empty_task.write({'chat_enabled': True})
 
     def test_portal_access_own_channel(self):
         """Portal user should be able to read their own task's channel."""
@@ -116,3 +133,18 @@ class TestTaskChatChannel(TransactionCase):
             ('body', 'like', 'Hello from portal'),
         ])
         self.assertTrue(messages)
+
+    def test_non_task_chat_channel_no_bus(self):
+        """Regular group channels (is_task_chat=False) should not trigger task chat bus notifications."""
+        # Create a regular group channel (not task chat)
+        regular_channel = self.env['discuss.channel'].create({
+            'name': 'Regular Group',
+            'channel_type': 'group',
+            'is_task_chat': False,
+        })
+        # This should not raise any errors — just verify no crash
+        regular_channel.message_post(
+            body='Test message',
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )

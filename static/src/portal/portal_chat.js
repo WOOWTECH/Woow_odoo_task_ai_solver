@@ -3,6 +3,8 @@
 import publicWidget from "@web/legacy/js/public/public_widget";
 import { rpc } from "@web/core/network/rpc";
 
+const DEFAULT_MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB fallback
+
 publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
     selector: '#o_portal_task_chat',
 
@@ -12,6 +14,9 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
 
         this.messages = [];
         this.pendingAttachments = [];
+        this.hasMore = false;
+        this._maxUploadSize = DEFAULT_MAX_UPLOAD_SIZE;
+        this._consecutiveErrors = 0;
         this._renderChatUI();
         this._loadHistory();
         this._startSmartPolling();
@@ -62,9 +67,12 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
         const files = Array.from(ev.target.files);
         if (!files.length) return;
 
+        const maxSize = this._maxUploadSize;
+        const maxSizeMB = Math.round(maxSize / (1024 * 1024));
+
         for (const file of files) {
-            if (file.size > 10 * 1024 * 1024) {
-                alert(`File "${file.name}" exceeds 10MB limit.`);
+            if (file.size > maxSize) {
+                alert(`File "${file.name}" exceeds ${maxSizeMB}MB limit.`);
                 continue;
             }
             try {
@@ -122,45 +130,97 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
                 channel_id: this.channelId,
             });
             if (result && result.messages) {
+                this._consecutiveErrors = 0; // Reset on success
                 this.messages = result.messages;
+                this.hasMore = result.has_more || false;
+                // Use server-provided config for upload size limit
+                if (result.config && result.config.max_upload_size) {
+                    this._maxUploadSize = result.config.max_upload_size;
+                }
                 this._renderMessages();
                 this._adjustPollingSpeed();
             }
         } catch (e) {
+            this._consecutiveErrors++;
+            // Exponential backoff on repeated errors: 3s, 6s, 12s, 24s, 48s, capped at 60s
+            this._pollIntervalMs = Math.min(
+                3000 * Math.pow(2, this._consecutiveErrors),
+                60000
+            );
+            this._restartPolling();
             console.error('Failed to load chat history:', e);
-            this.messagesContainer.innerHTML =
-                '<div class="text-center text-muted p-3">Failed to load messages.</div>';
+            if (this._consecutiveErrors === 1) {
+                // Show error only on first failure to avoid flashing
+                this.messagesContainer.innerHTML =
+                    '<div class="text-center text-muted p-3">Failed to load messages. Retrying...</div>';
+            }
         }
     },
 
-    _renderMessages() {
+    async _loadOlderMessages() {
+        if (!this.hasMore || this._loadingMore) return;
+        const oldest = this.messages[0];
+        if (!oldest) return;
+
+        this._loadingMore = true;
+        try {
+            const result = await rpc('/project_ai_solver/chat/history', {
+                channel_id: this.channelId,
+                before_date: oldest.date,
+                limit: 50,
+            });
+            if (result && result.messages) {
+                this.messages = [...result.messages, ...this.messages];
+                this.hasMore = result.has_more || false;
+                this._renderMessages(/* scrollToBottom */ false);
+            }
+        } catch (e) {
+            console.error('Failed to load older messages:', e);
+        }
+        this._loadingMore = false;
+    },
+
+    _renderMessages(scrollToBottom = true) {
         if (!this.messages.length) {
             this.messagesContainer.innerHTML =
                 '<div class="text-center text-muted p-3">No messages yet. Start the conversation!</div>';
             return;
         }
-        this.messagesContainer.innerHTML = this.messages.map((msg) => {
+
+        // "Load older" button
+        let html = '';
+        if (this.hasMore) {
+            html += '<div class="text-center mb-2">' +
+                '<button class="btn btn-sm btn-outline-secondary o_load_older">Load older messages</button>' +
+                '</div>';
+        }
+
+        html += this.messages.map((msg) => {
             let attachmentsHtml = '';
             if (msg.attachments && msg.attachments.length) {
                 attachmentsHtml = '<div class="o_chat_attachments mt-2 d-flex flex-wrap gap-2">' +
                     msg.attachments.map((att) => {
                         if (att.is_image) {
-                            return `<a href="/web/content/${att.id}?access_token=${att.access_token}" target="_blank" class="o_chat_attachment_img">
-                                <img src="/web/image/${att.id}?access_token=${att.access_token}"
+                            return `<a href="/web/content/${att.id}?access_token=${this._escapeHtml(att.access_token)}" target="_blank" class="o_chat_attachment_img">
+                                <img src="/web/image/${att.id}?access_token=${this._escapeHtml(att.access_token)}"
                                      alt="${this._escapeHtml(att.name)}"
                                      style="max-width: 200px; max-height: 150px; border-radius: 4px; border: 1px solid #dee2e6;"/>
                             </a>`;
                         }
                         const sizeStr = att.file_size ? ` (${this._formatFileSize(att.file_size)})` : '';
-                        return `<a href="/web/content/${att.id}?download=true&access_token=${att.access_token}"
+                        return `<a href="/web/content/${att.id}?download=true&access_token=${this._escapeHtml(att.access_token)}"
                                    target="_blank"
                                    class="badge bg-light text-dark border d-flex align-items-center gap-1 py-1 px-2 text-decoration-none">
                             <i class="fa fa-file-o"></i>
-                            <span>${this._escapeHtml(att.name)}${sizeStr}</span>
+                            <span>${this._escapeHtml(att.name)}${this._escapeHtml(sizeStr)}</span>
                         </a>`;
                     }).join('') +
                     '</div>';
             }
+
+            // msg.body is HTML sanitized by Odoo's mail system (safe for innerHTML).
+            // Defense-in-depth: strip <script> tags in case any bypass Odoo's sanitizer.
+            const safeBody = (msg.body || '').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 
             return `
                 <div class="mb-2 p-2 rounded" style="background: white;">
@@ -170,12 +230,23 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
                         </strong>
                         <small class="text-muted">${this._escapeHtml(msg.date || '')}</small>
                     </div>
-                    <div class="mt-1">${msg.body || ''}</div>
+                    <div class="mt-1">${safeBody}</div>
                     ${attachmentsHtml}
                 </div>
             `;
         }).join('');
-        this._scrollToBottom();
+
+        this.messagesContainer.innerHTML = html;
+
+        // Bind "Load older" button
+        const loadOlderBtn = this.messagesContainer.querySelector('.o_load_older');
+        if (loadOlderBtn) {
+            loadOlderBtn.addEventListener('click', () => this._loadOlderMessages());
+        }
+
+        if (scrollToBottom) {
+            this._scrollToBottom();
+        }
     },
 
     async _sendMessage() {
@@ -205,9 +276,21 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
         this._lastMessageCount = 0;
         this._noChangeCount = 0;
 
-        this._pollTimer = setInterval(() => {
-            this._loadHistory();
+        this._schedulePoll();
+    },
+
+    _schedulePoll() {
+        // Use setTimeout instead of setInterval for better control after errors
+        this._pollTimer = setTimeout(() => {
+            this._loadHistory().then(() => {
+                this._schedulePoll();
+            });
         }, this._pollIntervalMs);
+    },
+
+    _restartPolling() {
+        clearTimeout(this._pollTimer);
+        this._schedulePoll();
     },
 
     _adjustPollingSpeed() {
@@ -218,16 +301,14 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
             this._noChangeCount = 0;
             if (this._pollIntervalMs !== 3000) {
                 this._pollIntervalMs = 3000;
-                clearInterval(this._pollTimer);
-                this._pollTimer = setInterval(() => this._loadHistory(), 3000);
+                this._restartPolling();
             }
         } else {
             this._noChangeCount++;
             // After 40 unchanged polls (~2 minutes at 3s), slow to 15s
             if (this._noChangeCount > 40 && this._pollIntervalMs !== 15000) {
                 this._pollIntervalMs = 15000;
-                clearInterval(this._pollTimer);
-                this._pollTimer = setInterval(() => this._loadHistory(), 15000);
+                this._restartPolling();
             }
         }
     },
@@ -251,9 +332,7 @@ publicWidget.registry.PortalTaskChat = publicWidget.Widget.extend({
     },
 
     destroy() {
-        if (this._pollTimer) {
-            clearInterval(this._pollTimer);
-        }
+        clearTimeout(this._pollTimer);
         this._super(...arguments);
     },
 });

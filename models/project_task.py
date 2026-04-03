@@ -1,6 +1,7 @@
 import logging
 
 from odoo import models, fields, api, Command
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -38,15 +39,15 @@ class ProjectTask(models.Model):
             member_partners |= self.partner_id
 
         if not member_partners:
-            _logger.warning(
-                "Task %s: cannot create chat channel — no members to add.",
-                self.display_name,
+            raise UserError(
+                "Cannot enable chat: Task '%s' has no assigned users and no customer. "
+                "Please assign at least one user or set a customer first." % self.display_name
             )
-            return self.env['discuss.channel']
 
         channel = self.env['discuss.channel'].create({
             'name': "Task Chat: %s" % self.name,
             'channel_type': 'group',
+            'is_task_chat': True,
             'channel_member_ids': [
                 Command.create({'partner_id': partner.id})
                 for partner in member_partners

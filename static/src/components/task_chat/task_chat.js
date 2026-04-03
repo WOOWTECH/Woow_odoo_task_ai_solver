@@ -1,10 +1,12 @@
 /** @odoo-module */
 
-import { Component, useState, useRef, onMounted, markup } from "@odoo/owl";
+import { Component, useState, useRef, onMounted, onWillUnmount, markup } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { rpc } from "@web/core/network/rpc";
+
+const DEFAULT_MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB fallback
 
 export class TaskChatWidget extends Component {
     static template = "project_ai_solver.TaskChat";
@@ -14,16 +16,20 @@ export class TaskChatWidget extends Component {
 
     setup() {
         this.notification = useService("notification");
+        this._maxUploadSize = DEFAULT_MAX_UPLOAD_SIZE;
 
         this.state = useState({
             messages: [],
             inputValue: "",
             loading: true,
+            hasMore: false,
+            loadingMore: false,
             pendingAttachments: [],
             uploading: false,
         });
 
         this.messagesEnd = useRef("messagesEnd");
+        this.messagesContainer = useRef("messagesContainer");
         this.fileInputRef = useRef("fileInput");
 
         // Real-time bus subscription (optional — not available in all contexts)
@@ -45,6 +51,11 @@ export class TaskChatWidget extends Component {
             } else {
                 this.state.loading = false;
             }
+        });
+
+        // Clean up debounce timeout on component destruction
+        onWillUnmount(() => {
+            clearTimeout(this._busDebounce);
         });
     }
 
@@ -74,11 +85,41 @@ export class TaskChatWidget extends Component {
                 body: markup(m.body || ""),
                 attachments: m.attachments || [],
             }));
+            this.state.hasMore = result.has_more || false;
+            // Use server-provided config for upload size limit
+            if (result.config && result.config.max_upload_size) {
+                this._maxUploadSize = result.config.max_upload_size;
+            }
         } catch (e) {
             this.notification.add("Failed to load chat messages", { type: "danger" });
         }
         this.state.loading = false;
         this.scrollToBottom();
+    }
+
+    async loadOlderMessages() {
+        if (!this.state.hasMore || this.state.loadingMore) return;
+        const oldest = this.state.messages[0];
+        if (!oldest) return;
+
+        this.state.loadingMore = true;
+        try {
+            const result = await rpc("/project_ai_solver/chat/history", {
+                channel_id: this.channelId,
+                limit: 50,
+                before_date: oldest.date,
+            });
+            const olderMessages = (result.messages || []).map((m) => ({
+                ...m,
+                body: markup(m.body || ""),
+                attachments: m.attachments || [],
+            }));
+            this.state.messages = [...olderMessages, ...this.state.messages];
+            this.state.hasMore = result.has_more || false;
+        } catch (e) {
+            this.notification.add("Failed to load older messages", { type: "danger" });
+        }
+        this.state.loadingMore = false;
     }
 
     async sendMessage() {
@@ -115,10 +156,15 @@ export class TaskChatWidget extends Component {
 
         this.state.uploading = true;
         const channelId = this.channelId;
+        const maxSize = this._maxUploadSize;
+        const maxSizeMB = Math.round(maxSize / (1024 * 1024));
 
         for (const file of files) {
-            if (file.size > 10 * 1024 * 1024) {
-                this.notification.add(`File "${file.name}" exceeds 10MB limit.`, { type: "warning" });
+            if (file.size > maxSize) {
+                this.notification.add(
+                    `File "${file.name}" exceeds ${maxSizeMB}MB limit.`,
+                    { type: "warning" },
+                );
                 continue;
             }
             try {

@@ -13,6 +13,7 @@
 
             <!-- Messages area -->
             <div class="o_task_chat_messages flex-grow-1 overflow-auto p-3"
+                 t-ref="messagesContainer"
                  style="max-height: 400px;">
                 <t t-if="state.loading">
                     <div class="text-center text-muted py-4">
@@ -25,6 +26,15 @@
                     </div>
                 </t>
                 <t t-else="">
+                    <!-- Load older messages -->
+                    <div t-if="state.hasMore" class="text-center mb-2">
+                        <button class="btn btn-sm btn-outline-secondary"
+                                t-on-click="loadOlderMessages"
+                                t-att-disabled="state.loadingMore">
+                            <i t-if="state.loadingMore" class="fa fa-spinner fa-spin"/>
+                            <span t-else="">Load older messages</span>
+                        </button>
+                    </div>
                     <t t-foreach="state.messages" t-as="msg" t-key="msg.id">
                         <div class="o_task_chat_message mb-2 p-2 rounded bg-100">
                             <div class="d-flex justify-content-between">

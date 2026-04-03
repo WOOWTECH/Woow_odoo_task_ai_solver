@@ -8,6 +8,7 @@
         <field name="domain_force">[
             ('channel_member_ids.partner_id', '=', user.partner_id.id),
             ('channel_type', '=', 'group'),
+            ('is_task_chat', '=', True),
         ]</field>
         <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
         <field name="perm_read" eval="True"/>
