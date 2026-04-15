@@ -1,0 +1,140 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+#   * project_ai_solver (Woow_odoo_task_ai_solver)
+#
+# Translators:
+# WOOWTECH <info@woowtech.com>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-15 00:00+0000\n"
+"PO-Revision-Date: 2026-04-15 00:00+0800\n"
+"Last-Translator: WOOWTECH <info@woowtech.com>\n"
+"Language-Team: Chinese (Traditional)\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. module: project_ai_solver
+#: model_terms:ir.ui.view,arch_db:project_ai_solver.view_task_form_inherit
+msgid "Chat"
+msgstr "聊天"
+
+#. module: project_ai_solver
+#: model_terms:ir.ui.view,arch_db:project_ai_solver.portal_task_chat_template
+msgid "Task Chat"
+msgstr "任務聊天"
+
+#. module: project_ai_solver
+#: model:ir.model.fields,field_description:project_ai_solver.field_project_task__chat_enabled
+msgid "Enable Chat"
+msgstr "啟用聊天"
+
+#. module: project_ai_solver
+#: model:ir.model.fields,field_description:project_ai_solver.field_project_task__channel_id
+msgid "Chat Channel"
+msgstr "聊天頻道"
+
+#. module: project_ai_solver
+#. odoo-python
+#: code:addons/project_ai_solver/models/project_task.py:0
+#, python-format
+msgid "Cannot enable chat: Task '%s' has no assigned users and no customer. Please assign at least one user or set a customer first."
+msgstr "無法啟用聊天：任務「%s」沒有指派使用者且沒有客戶。請先至少指派一位使用者或設定客戶。"
+
+#. module: project_ai_solver
+#: model:ir.model.fields,field_description:project_ai_solver.field_discuss_channel__is_task_chat
+msgid "Is Task Chat Channel"
+msgstr "是否為任務聊天頻道"
+
+#. module: project_ai_solver
+#: model:ir.model.fields,help:project_ai_solver.field_discuss_channel__is_task_chat
+msgid "Indicates this channel was created for a project task chat."
+msgstr "表示此頻道是為專案任務聊天所建立。"
+
+#. module: project_ai_solver
+#. odoo-python
+#: code:addons/project_ai_solver/controllers/portal.py:0
+#, python-format
+msgid "Channel not found."
+msgstr "找不到頻道。"
+
+#. module: project_ai_solver
+#. odoo-python
+#: code:addons/project_ai_solver/controllers/portal.py:0
+#, python-format
+msgid "You do not have access to this chat channel."
+msgstr "您沒有權限存取此聊天頻道。"
+
+#. module: project_ai_solver
+#. odoo-python
+#: code:addons/project_ai_solver/controllers/portal.py:0
+#, python-format
+msgid "Rate limit exceeded. Please try again later."
+msgstr "操作過於頻繁，請稍後再試。"
+
+#. module: project_ai_solver
+#. odoo-python
+#: code:addons/project_ai_solver/controllers/portal.py:0
+#, python-format
+msgid "File too large. Maximum size is %dMB."
+msgstr "檔案過大。最大限制為 %dMB。"
+
+#. module: project_ai_solver
+#. odoo-javascript
+#: static/src/components/task_chat/task_chat.js:0
+msgid "Failed to load chat messages"
+msgstr "載入聊天訊息失敗"
+
+#. module: project_ai_solver
+#. odoo-javascript
+#: static/src/components/task_chat/task_chat.js:0
+msgid "Failed to load older messages"
+msgstr "載入歷史訊息失敗"
+
+#. module: project_ai_solver
+#. odoo-javascript
+#: static/src/components/task_chat/task_chat.js:0
+msgid "Failed to send message"
+msgstr "發送訊息失敗"
+
+#. module: project_ai_solver
+#. odoo-javascript
+#: static/src/portal/portal_chat.js:0
+msgid "Failed to load messages. Retrying..."
+msgstr "載入訊息失敗，正在重試..."
+
+#. module: project_ai_solver
+#. odoo-javascript
+#: static/src/portal/portal_chat.js:0
+msgid "Unknown"
+msgstr "未知"
+
+#. module: project_ai_solver
+#: static/src/components/task_chat/task_chat.xml:0
+msgid "Loading messages..."
+msgstr "正在載入訊息..."
+
+#. module: project_ai_solver
+#: static/src/components/task_chat/task_chat.xml:0
+msgid "No messages yet. Start the conversation!"
+msgstr "尚無訊息，開始對話吧！"
+
+#. module: project_ai_solver
+#: static/src/components/task_chat/task_chat.xml:0
+msgid "Load older messages"
+msgstr "載入更多歷史訊息"
+
+#. module: project_ai_solver
+#: static/src/components/task_chat/task_chat.xml:0
+msgid "Attach file"
+msgstr "附加檔案"
+
+#. module: project_ai_solver
+#: static/src/components/task_chat/task_chat.xml:0
+msgid "Type a message..."
+msgstr "輸入訊息..."
